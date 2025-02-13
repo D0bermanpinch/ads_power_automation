@@ -1,0 +1,9 @@
+[{
+ "domain": ".twitter.com",
+ "httpOnly": false,
+ "path": "/",
+ "secure": false,
+ "expirationDate": 1739009685,
+ "name": "auth_token",
+ "value": "CHANGE"
+}]
