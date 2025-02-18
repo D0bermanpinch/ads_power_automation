@@ -1,5 +1,8 @@
 venv/
-__pycache__/
-.env
-*.xlsx
+
+data/
+
 logs/
+cookies.txt
+data.txt
+data2.txt

@@ -1,7 +1,35 @@
 import requests
 import json
+import os
+from datetime import datetime, timezone
 from config.settings import Data_Setup
 from src.utils import get_next_account
+
+
+def save_profile(email, serial_number):
+    profile_data = {
+        "email": email,
+        "serial_number": serial_number,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "bought": False
+    }
+
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # Путь к корню проекта
+    profiles_path = os.path.join(base_dir, "data", "profiles.json")
+
+    if os.path.exists(profiles_path):
+        try:
+            with open(profiles_path, "r", encoding="utf-8") as f:
+                profiles = json.load(f)
+        except json.JSONDecodeError:
+            profiles = []  # Если файл пустой или битый, создаём пустой список
+    else:
+        profiles = []
+
+    profiles.append(profile_data)
+
+    with open(profiles_path, "w", encoding="utf-8") as f:
+        json.dump(profiles, f, indent=4, ensure_ascii=False)
 
 
 class AdsPowerAPI:
@@ -47,7 +75,7 @@ class AdsPowerAPI:
             },
             "fingerprint_config": {
                 "browser": self.browser_version,
-                "ua": self.os_type,  # Пробуем передать OS
+                "ua": self.os_type,  # Передача OS
                 "webrtc": self.webrtc_mode,
                 "canvas": 0,  # Выключаем Canvas
                 "webgl_image": 0  # Выключаем WebGL Image
@@ -66,8 +94,19 @@ class AdsPowerAPI:
         }
 
         response = requests.post(url, json=data)
+        print(response)
+
+        try:
+            response_json = response.json()  # Преобразуем response в JSON
+        except json.JSONDecodeError:
+            print("Ошибка: сервер вернул некорректный JSON.")
+            return None
+
+        if response_json.get("code") == 0:
+            serial_number = response_json["data"]["serial_number"]
+            save_profile(email, serial_number)
         print(response.json())  # Логируем ответ API
-        return response.json()
+        return response_json
 
 
 if __name__ == "__main__":
