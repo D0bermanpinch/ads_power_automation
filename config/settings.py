@@ -5,7 +5,7 @@ load_dotenv()
 
 class Data_Setup:
 
-    ADSP_API_URL = "http://local.adspower.net:50325/api/v1"
+    ADSP_API_URL = os.getenv("ADSP_API_URL")
     ADSP_API_KEY = os.getenv("ADSP_API_KEY")
     PROXY_ID = os.getenv("PROXY_ID")
     PROXY_USER = os.getenv("PROXY_USER")
