@@ -3,3 +3,7 @@ __pycache__/
 .env
 *.xlsx
 logs/
+data
+cookies.txt
+data.txt
+data2.txt
