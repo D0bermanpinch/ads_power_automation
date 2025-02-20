@@ -45,6 +45,9 @@ class AdsPowerAPI:
         self.proxy_user = Data_Setup.PROXY_USER
         self.proxy_password = Data_Setup.PROXY_PASSWORD
         self.proxy_url = Data_Setup.PROXY_URL
+        self.proxy_type = Data_Setup.PROXY_TYPE
+        self.proxy_host = Data_Setup.PROXY_HOST
+        self.proxy_port = Data_Setup.PROXY_PORT
 
     def get_profiles(self):
         url = f"{self.base_url}/user/list"
@@ -66,9 +69,9 @@ class AdsPowerAPI:
             "group_id": self.group_id,
             "domain_name": "x.com",
             "user_proxy_config": {
-                "proxy_type": "http",
-                "proxy_host": "5.161.22.120",
-                "proxy_port": 13757,
+                "proxy_type": self.proxy_type,
+                "proxy_host": self.proxy_host,
+                "proxy_port": self.proxy_port,
                 "proxy_user": self.proxy_user,
                 "proxy_password": self.proxy_password,
                 "proxy_url": self.proxy_url,

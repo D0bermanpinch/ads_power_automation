@@ -1,8 +1,11 @@
-import requests
+from time import sleep
 from playwright.sync_api import sync_playwright
 from config.settings import Data_Setup
 from src.utils import get_unverified_profile
+from src.outlook_login import OutlookAutomation
+from src.utils import get_email_password_from_xlsx
 import json
+import requests
 
 
 class TwitterAutomation:
@@ -96,6 +99,7 @@ class TwitterAutomation:
             return
 
         print("Переход на страницу смены языка...")
+        sleep(10)
         twitter_page.goto("https://x.com/settings/language")
 
         # Определяем текущий язык
@@ -107,26 +111,66 @@ class TwitterAutomation:
 
         print(f"Текущий язык: {selected_language}, меняем на English.")
 
-        # pivot = twitter_page.locator('[data-testid="pivot"]').nth(3)
-        # #pivot.wait_for(timeout=50000)
-        # pivot.click()
-
         language_dropdown = twitter_page.locator("//select")
-        language_dropdown.wait_for(timeout=5000)
+        language_dropdown.wait_for(timeout=50000)
         language_dropdown.select_option("en")  # Выбираем English
 
         save_button = twitter_page.get_by_test_id("settingsDetailSave")
-        save_button.wait_for(timeout=5000)
+        save_button.wait_for(timeout=50000)
         save_button.click()
 
         print("Язык изменён на английский.")
+
+    def subscribe_twitter_blue(self):
+        """Открывает страницу Twitter Blue в новой вкладке и выполняет подписку"""
+        if not self.context:
+            print("Ошибка: Контекст браузера отсутствует.")
+            return
+
+        print("Открываем новую вкладку для подписки Twitter Blue...")
+        premium_page = self.context.new_page()
+        premium_page.goto("https://x.com/i/premium_sign_up", wait_until="domcontentloaded")
+
+        print("Переключаемся на вкладку с подпиской...")
+        premium_page.bring_to_front()
+
+        # Ждём появления и выбираем "Monthly"
+        try:
+            monthly_button = premium_page.locator('input[name="interval-selector"]').nth(1)
+            monthly_button.wait_for(timeout=15000)
+            monthly_button.click()
+            print("Выбрана подписка 'Monthly'.")
+        except:
+            print("Ошибка: Кнопка 'Monthly' не найдена.")
+            return
+
+        # Переход к оплате
+        try:
+            print("Переход на страницу оплаты подписки Twitter Blue...")
+            subscribe_button = premium_page.locator('[data-testid="subscribeButton"]')
+            subscribe_button.wait_for(timeout=5000)
+            subscribe_button.click()
+            print("Успешный переход на оплату.")
+        except:
+            print("Ошибка: Кнопка 'Subscribe & Pay' не найдена.")
 
 
 if __name__ == "__main__":
     twitter_bot = TwitterAutomation()
     context, pages = twitter_bot.open_profile()
-    twitter_bot.set_language_to_english()
 
-    # Теперь context и pages доступны даже после выхода из функции
+    if context:
+        twitter_bot.set_language_to_english()  # Меняем язык в Twitter
+
+        # Открываем Outlook в новом окне и входим
+        email, password = get_email_password_from_xlsx()
+        if email and password:
+            outlook_bot = OutlookAutomation(context)
+            outlook_bot.login_outlook(email, password)
+        else:
+            print("Ошибка: Не найден email или пароль в output.xlsx")
+        twitter_bot.subscribe_twitter_blue()
+
     input("Нажмите Enter для выхода...")
     twitter_bot.close()
+
