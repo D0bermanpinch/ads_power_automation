@@ -3,7 +3,7 @@ from playwright.sync_api import sync_playwright
 from config.settings import Data_Setup
 from src.utils import get_unverified_profile
 from src.outlook_login import OutlookAutomation
-from src.utils import get_email_password_from_xlsx
+from utils import get_email_password_from_json
 import json
 import requests
 
@@ -163,7 +163,8 @@ if __name__ == "__main__":
         twitter_bot.set_language_to_english()  # Меняем язык в Twitter
 
         # Открываем Outlook в новом окне и входим
-        email, password = get_email_password_from_xlsx()
+        user_id = get_unverified_profile()
+        email, password = get_email_password_from_json(user_id)
         if email and password:
             outlook_bot = OutlookAutomation(context)
             outlook_bot.login_outlook(email, password)

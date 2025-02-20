@@ -3,24 +3,30 @@ import json
 import os
 from datetime import datetime, timezone
 from config.settings import Data_Setup
-from src.utils import get_next_account
+from src.utils import get_credentials
+
+PROFILES_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "profiles.json")
 
 
-def save_profile(email, serial_number, user_id):
+def save_profile(email, password, serial_number, user_id, token, twitter_login, twitter_password, twitter_email):
+    """Сохраняет профиль в profiles.json"""
     profile_data = {
         "email": email,
-        "user_id": user_id,
-        "serial_number": serial_number,
+        "password": password,
+        "twitter_login": twitter_login,
+        "twitter_password": twitter_password,
+        "twitter_email": twitter_email,
+        "user_id": user_id,  # Генерировать или получать из другого источника
+        "serial_number": serial_number,  # Генерировать или получать из другого источника
+        "token": token,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "bought": False
     }
 
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # Путь к корню проекта
-    profiles_path = os.path.join(base_dir, "data", "profiles.json")
-
-    if os.path.exists(profiles_path):
+    # Проверка, существует ли файл профилей
+    if os.path.exists(PROFILES_PATH):
         try:
-            with open(profiles_path, "r", encoding="utf-8") as f:
+            with open(PROFILES_PATH, "r", encoding="utf-8") as f:
                 profiles = json.load(f)
         except json.JSONDecodeError:
             profiles = []  # Если файл пустой или битый, создаём пустой список
@@ -29,7 +35,7 @@ def save_profile(email, serial_number, user_id):
 
     profiles.append(profile_data)
 
-    with open(profiles_path, "w", encoding="utf-8") as f:
+    with open(PROFILES_PATH, "w", encoding="utf-8") as f:
         json.dump(profiles, f, indent=4, ensure_ascii=False)
 
 
@@ -49,20 +55,9 @@ class AdsPowerAPI:
         self.proxy_host = Data_Setup.PROXY_HOST
         self.proxy_port = Data_Setup.PROXY_PORT
 
-    def get_profiles(self):
-        url = f"{self.base_url}/user/list"
-        params = {"apiKey": self.api_key}
-        response = requests.get(url, params=params)
-        return response.json()
-
-    def create_profile(self):
-        account = get_next_account()
-        if not account:
-            print("Нет доступных аккаунтов.")
-            return None
-
-        email, password, token = account["Email"], account["Password"], account["Token"]
-
+    def create_profile(self, email, password, token, twitter_login, twitter_password, twitter_email):
+        """Создает профиль и сохраняет данные в profiles.json"""
+        # Формируем данные для API запроса
         url = f"{self.base_url}/user/create"
         data = {
             "apiKey": self.api_key,
@@ -79,22 +74,20 @@ class AdsPowerAPI:
             },
             "fingerprint_config": {
                 "browser": self.browser_version,
-                "ua": self.os_type,  # Передача OS
+                "ua": self.os_type,
                 "webrtc": self.webrtc_mode,
-                "canvas": 0,  # Выключаем Canvas
-                "webgl_image": 0  # Выключаем WebGL Image
+                "canvas": 0,
+                "webgl_image": 0
             },
-            "cookie": json.dumps([
-                {
-                    "domain": ".twitter.com",
-                    "httpOnly": False,
-                    "path": "/",
-                    "secure": False,
-                    "expirationDate": 1739009685,
-                    "name": "auth_token",
-                    "value": token
-                }]
-            )
+            "cookie": json.dumps([{
+                "domain": ".twitter.com",
+                "httpOnly": False,
+                "path": "/",
+                "secure": False,
+                "expirationDate": 1739009685,
+                "name": "auth_token",
+                "value": token
+            }])
         }
 
         response = requests.post(url, json=data)
@@ -109,11 +102,26 @@ class AdsPowerAPI:
         if response_json.get("code") == 0:
             serial_number = response_json["data"]["serial_number"]
             user_id = response_json["data"]["id"]
-            save_profile(email, serial_number, user_id)
+            save_profile(email, password, serial_number, user_id, token, twitter_login, twitter_password, twitter_email)
+
         print(response.json())  # Логируем ответ API
         return response_json
 
 
 if __name__ == "__main__":
     api = AdsPowerAPI()
-    new_profile = api.create_profile()
+    account_data = get_credentials()  # Получаем данные из utils.py
+
+    if account_data:  # Если данные получены, передаем их в create_profile
+        # Извлекаем данные для передачи в create_profile
+        email = account_data["Email"]
+        password = account_data["Password"]
+        token = account_data["Token"]
+        twitter_login = account_data["Twitter Login"]
+        twitter_password = account_data["Twitter Password"]
+        twitter_email = account_data["Twitter Email"]
+
+        # Вызываем create_profile с полученными данными
+        api.create_profile(email, password, token, twitter_login, twitter_password, twitter_email)
+    else:
+        print("Ошибка: Не удалось получить данные для аккаунта.")

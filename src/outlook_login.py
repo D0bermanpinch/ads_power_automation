@@ -2,7 +2,7 @@ import json
 import os
 from playwright.sync_api import sync_playwright
 from config.settings import Data_Setup
-from src.utils import get_email_password_from_xlsx
+from src.utils import get_email_password_from_json, get_unverified_profile
 import traceback
 
 
@@ -87,7 +87,8 @@ class OutlookAutomation:
 
 if __name__ == "__main__":
     with sync_playwright() as p:
-        email, password = get_email_password_from_xlsx()
+        user_id = get_unverified_profile()
+        email, password = get_email_password_from_json(user_id)
         if not email or not password:
             print("Ошибка: Не найден email или пароль.")
             exit()
