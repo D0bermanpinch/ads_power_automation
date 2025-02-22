@@ -1,0 +1,29 @@
+[33mcommit 1050500a0e35eb4a016c4cc05987239156b12f1e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mgalkabuy[m[33m, [m[1;31morigin/galkabuy[m[33m)[m
+Author: D0bermanpinch <makskot2598@gmail.com>
+Date:   Thu Feb 20 13:07:27 2025 +0300
+
+    наполовину работающий переход. Ошибка в чтении логина для почты + неправильно устанавливается флаг в xlsx файле
+
+[33mcommit efc753177807d9a554ab261279ae1d4f50f49c76[m
+Author: D0bermanpinch <makskot2598@gmail.com>
+Date:   Wed Feb 19 11:32:26 2025 +0300
+
+    Done languange
+
+[33mcommit eec32487a05f7780b4807bf1369b84d12c807319[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m
+Author: D0bermanpinch <makskot2598@gmail.com>
+Date:   Tue Feb 18 17:17:52 2025 +0300
+
+    Updating gitignore
+
+[33mcommit 04509a4e34328404b45e17af7245a89de2bb90f2[m
+Author: D0bermanpinch <makskot2598@gmail.com>
+Date:   Thu Feb 13 21:07:42 2025 +0300
+
+    Creating profile 1.0 without working by lines on xlsx 13.02.25
+
+[33mcommit ddf2101314c9f039b5081a3b151a513dabdd9c72[m
+Author: D0bermanpinch <makskot2598@gmail.com>
+Date:   Thu Feb 13 17:03:29 2025 +0300
+
+    Some part of skeleton of project
