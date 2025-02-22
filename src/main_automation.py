@@ -1,8 +1,8 @@
 import time
 from ads_power_api import AdsPowerAPI
 from buy_twitter_blue import TwitterAutomation
-from outlook_login import OutlookAutomation
-from utils import get_email_password_from_json, get_credentials
+from src.outlook_login import OutlookAutomation
+from utils import get_credentials, get_email_password_from_json
 
 
 def main():
@@ -11,8 +11,8 @@ def main():
     # 1. Создание профиля в AdsPower
     ads_start = time.time()
     ads_api = AdsPowerAPI()
+    account_data = get_credentials()  # Получаем данные из output.xlsx
 
-    account_data = get_credentials()  # Получаем данные из utils.py
     if not account_data:  # Проверяем, получены ли данные
         print("Ошибка: Не удалось получить учетные данные из output.xlsx.")
         return
@@ -25,7 +25,7 @@ def main():
     twitter_password = account_data["Twitter Password"]
     twitter_email = account_data["Twitter Email"]
 
-    new_profile = ads_api.create_profile(email, password, token, twitter_login, twitter_password, twitter_email)  # Профиль создается внутри create_profile
+    new_profile = ads_api.create_profile(email, password, token, twitter_login, twitter_password, twitter_email)
     ads_end = time.time()
 
     if not new_profile or new_profile.get("code") != 0:
@@ -34,43 +34,51 @@ def main():
 
     serial_number = new_profile["data"]["serial_number"]
     user_id = new_profile["data"]["id"]
-    print(f"✅ Профиль создан за {ads_end - ads_start:.2f} секунд (user_id: {user_id})")
+    print(f"Профиль создан за {ads_end - ads_start:.2f} секунд (user_id: {user_id})")
 
-    # 2. Получение email и password из profiles.json на основе user_id
-    email, password = get_email_password_from_json(user_id)
-
-    if not email or not password:
-        print(f"Ошибка: Не удалось получить email и пароль из profiles.json для user_id {user_id}.")
-        return
-
-    # 3. Открытие Twitter-профиля и смена языка
+    # 2. Открытие Twitter-профиля и выполнение всех операций
     twitter_start = time.time()
     twitter_bot = TwitterAutomation()
     context, pages = twitter_bot.open_profile()
 
     if context:
-        twitter_bot.set_language_to_english()  # Меняем язык в Twitter
-        print("✅ Язык изменён на английский.")
+        # Проверяем, залогинен ли аккаунт, если нет - входим
+        twitter_bot.login_account()
 
-        # 4. Открываем подписку Twitter Blue в новой вкладке
+        # Смена языка на английский
+        twitter_bot.set_language_to_english()
+        print("Язык изменён на английский.")
+
+        # Открытие подписки Twitter Blue
         twitter_bot.subscribe_twitter_blue()
-        print("✅ Переключились на вкладку подписки Twitter Blue.")
+        print("Переключились на вкладку подписки Twitter Blue.")
+
+        # Смена почты
+        twitter_bot.change_email()
+        print("Начат процесс смены почты.")
 
     twitter_end = time.time()
-    print(f"✅ Twitter открыт и подписка запущена за {twitter_end - twitter_start:.2f} секунд.")
+    print(f"Все операции в Twitter выполнены за {twitter_end - twitter_start:.2f} секунд.")
 
-    # 5. Вход в Outlook с полученными email и password
+    # 3. Вход в Outlook для подтверждения кода
     outlook_start = time.time()
+    email, password = get_email_password_from_json(user_id)
+
     if email and password:
-        outlook_bot = OutlookAutomation(context)
+        # Открываем новую вкладку для Outlook
+        outlook_page = context.new_page()
+        outlook_bot = OutlookAutomation(outlook_page)
+
+        # Выполняем вход
         outlook_bot.login_outlook(email, password)
     else:
         print(f"Ошибка: Не найден email или пароль в profiles.json для user_id {user_id}.")
+
     outlook_end = time.time()
-    print(f"✅ Вход в Outlook выполнен за {outlook_end - outlook_start:.2f} секунд.")
+    print(f"Вход в Outlook выполнен за {outlook_end - outlook_start:.2f} секунд.")
 
     total_time = time.time() - start_time
-    print(f"⏳ Весь процесс занял {total_time:.2f} секунд.")
+    print(f"Весь процесс занял {total_time:.2f} секунд.")
 
     input("Нажмите Enter для выхода...")
     twitter_bot.close()

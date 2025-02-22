@@ -28,7 +28,7 @@ def get_unverified_profile():
         return None
 
     for profile in profiles:
-        print(f"Проверяем профиль: {profile}")  # Логирование
+        print(f"Проверяем профиль")  # Логирование
         if not profile.get("bought", False):  # Если bought=False
             serial_number = profile.get("serial_number")
             user_id = profile.get("user_id")
@@ -58,10 +58,31 @@ def get_email_password_from_json(user_id):
 
     # Ищем профиль по user_id
     for profile in profiles:
-        email = profile.get("email")
-        password = profile.get("password")
-        return email, password
+        if user_id == profile.get('user_id'):
+            email = profile.get("email")
+            password = profile.get("password")
+            return email, password
 
+def get_twitter_credentials_from_json(user_id):
+    """Получает email и password из profiles.json по user_id"""
+    if not os.path.exists(PROFILES_PATH):
+        print("Ошибка: profiles.json не найден.")
+        return None, None
+
+    try:
+        with open(PROFILES_PATH, "r", encoding="utf-8") as f:
+            profiles = json.load(f)
+    except json.JSONDecodeError:
+        print("Ошибка: не удалось прочитать profiles.json.")
+        return None, None
+
+    # Ищем профиль по user_id
+    for profile in profiles:
+        if user_id == profile.get('user_id'):
+            twitter_login = profile.get("twitter_login")
+            twitter_email = profile.get("twitter_email")
+            twitter_password = profile.get("twitter_password")
+            return twitter_login, twitter_email, twitter_password
 
 
 def get_credentials():

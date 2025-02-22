@@ -1,7 +1,7 @@
 from time import sleep
 from playwright.sync_api import sync_playwright
 from config.settings import Data_Setup
-from src.utils import get_unverified_profile
+from src.utils import get_unverified_profile, get_credentials, get_twitter_credentials_from_json
 from src.outlook_login import OutlookAutomation
 from utils import get_email_password_from_json
 import json
@@ -80,6 +80,79 @@ class TwitterAutomation:
             self.browser.close()
         self.playwright.stop()
 
+    def login_account(self):
+        """Входит в твиттер аккаунт, если он не залогинен."""
+        if not self.pages:
+            print("Нет доступных вкладок.")
+            return
+
+        twitter_page = None
+
+        # Ищем вкладку с Twitter
+        for page in self.pages:
+            if "x.com" in page.url or "twitter.com" in page.url:
+                twitter_page = page
+                break
+
+        if not twitter_page:
+            print("Вкладка Twitter не найдена.")
+            return
+
+        sleep(2)
+        # Проверяем, залогинен ли аккаунт (ищем кнопку "Log in")
+        if not ('i/flow/login' in twitter_page.url) and not twitter_page.locator("a[data-testid= 'loginButton']").is_visible(timeout=3000):
+            print("Аккаунт уже залогинен. Вход не требуется.")
+            return
+
+        print("Аккаунт не залогинен, выполняем вход...")
+
+        # Получаем user_id текущего профиля
+        serial_number, user_id = get_unverified_profile()
+        if not user_id:
+            print("Ошибка: Не удалось получить user_id.")
+            return
+
+        # Получаем данные для твиттера из profiles.json
+        twitter_login, twitter_email, twitter_password = get_twitter_credentials_from_json(user_id)
+        if not twitter_password:
+            print("Ошибка: Не найден пароль от Twitter в profiles.json.")
+            return
+
+        # Переход на страницу входа
+        twitter_page.goto("https://x.com/i/flow/login")
+
+        # Ввод логина
+        login_input = twitter_page.locator('input[type="text"]')
+        login_input.wait_for(timeout=50000)
+        login_input.fill(twitter_login)
+        print(f"Введен логин: {twitter_login}")
+
+        next_button = twitter_page.locator('button div.css-146c3p1').nth(2)
+        next_button.click()
+        sleep(1)
+
+        if twitter_page.locator('input[type="text"]').is_visible(timeout=3000):
+            #TODO изменить локатор, тк на странице входа без подтверждения он направлен на почту
+            print("Окно с подтверждением почты")
+            twitter_page.locator('input[type="text"]').fill(twitter_email)
+            twitter_page.locator('button[data-testid="ocfEnterTextNextButton"]').click()
+            print(f"Введена почта {twitter_email}")
+
+
+        password_input = twitter_page.locator('input[type="password"]')
+        password_input.wait_for(timeout=50000)
+        password_input.fill(twitter_password)
+        print(f"Введен пароль: {twitter_password}")
+        sleep(2)
+
+        login_button = twitter_page.locator('button[data-testid="LoginForm_Login_Button"]')
+        login_button.click()
+        print(f"Нажата кнопка Next")
+        try:
+            login_button.click()
+        except:
+            pass
+
     def set_language_to_english(self):
         """Меняет язык Twitter-профиля на английский"""
         if not self.pages:
@@ -99,7 +172,7 @@ class TwitterAutomation:
             return
 
         print("Переход на страницу смены языка...")
-        sleep(10)
+        sleep(3)
         twitter_page.goto("https://x.com/settings/language")
 
         # Определяем текущий язык
@@ -154,24 +227,95 @@ class TwitterAutomation:
         except:
             print("Ошибка: Кнопка 'Subscribe & Pay' не найдена.")
 
+    def change_email(self, email):
+        """Переключается на вкладку смены языка, переходит на страницу аккаунта и вводит пароль."""
+        if not self.context:
+            print("Ошибка: Контекст браузера отсутствует.")
+            return
+
+        # Ищем ранее открытую вкладку со сменой языка
+        language_page = None
+        for page in self.pages:
+            if "x.com/settings/language" in page.url:
+                language_page = page
+                break
+
+        if not language_page:
+            print("Ошибка: Вкладка смены языка не найдена.")
+            return
+
+        # Переключаемся на неё
+        language_page.bring_to_front()
+        print("Переключились на вкладку смены языка.")
+
+        # Переход на страницу "Ваши данные Twitter"
+        language_page.goto("https://x.com/settings/your_twitter_data/account", wait_until="domcontentloaded")
+        print("Перешли на страницу управления аккаунтом.")
+
+        # Ожидаем появления поля ввода пароля
+        password_input = language_page.locator('input[type="password"]')
+        password_input.wait_for(timeout=10000)
+
+        # Получаем user_id текущего профиля
+        serial_number, user_id = get_unverified_profile()
+        if not user_id:
+            print("Ошибка: Не удалось получить user_id.")
+            return
+
+        # Получаем пароль из profiles.json
+        twitter_login, twitter_email, twitter_password = get_twitter_credentials_from_json(user_id)
+        if not twitter_password:
+            print("Ошибка: Не найден пароль от Twitter в profiles.json.")
+            return
+
+        # Вводим пароль
+        password_input.fill(twitter_password)
+        print("Пароль от Twitter введён.")
+
+        # Нажимаем кнопку "Confirm"
+        confirm_button = language_page.locator('button:has-text("Confirm")')
+        confirm_button.wait_for(timeout=5000)
+        sleep(2)
+        confirm_button.click()
+        print("Подтверждение пароля выполнено.")
+
+        print("Переход на смену почты")
+        #language_page.locator('a[data-testid="pivot"]').nth(2).click()
+        language_page.goto('https://x.com/i/flow/add_email')
+
+        language_page.locator('input[name="password"]').fill(twitter_password)
+        language_page.locator('button[data-testid="LoginForm_Login_Button"]').click()
+        print("Успешный переход на смену почты")
+
+
+        language_page.locator('input[name="email"]').fill(email)
+        language_page.locator('button[data-testid="ocfEnterEmailNextLink"]').click()
+        print('Письмо отправлено на почту')
+
 
 if __name__ == "__main__":
     twitter_bot = TwitterAutomation()
     context, pages = twitter_bot.open_profile()
 
     if context:
+        # Проверяем, залогинен ли аккаунт
+        twitter_bot.login_account()
+
         twitter_bot.set_language_to_english()  # Меняем язык в Twitter
 
         # Открываем Outlook в новом окне и входим
-        user_id = get_unverified_profile()
+        serial_number, user_id = get_unverified_profile()
         email, password = get_email_password_from_json(user_id)
         if email and password:
             outlook_bot = OutlookAutomation(context)
             outlook_bot.login_outlook(email, password)
         else:
-            print("Ошибка: Не найден email или пароль в output.xlsx")
+            print("Ошибка: Не найден email или пароль в profiles.json")
+
         twitter_bot.subscribe_twitter_blue()
+        twitter_bot.change_email(email)
 
     input("Нажмите Enter для выхода...")
     twitter_bot.close()
+
 

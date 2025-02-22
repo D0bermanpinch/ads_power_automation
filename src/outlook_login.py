@@ -17,18 +17,13 @@ class OutlookAutomation:
             return
 
         outlook_page = self.context.new_page()
-        # outlook_page.goto("https://www.microsoft.com/en-us/microsoft-365/outlook/email-and-calendar-software-microsoft-outlook")
-        # outlook_page.wait_for_load_state("")
-        #
-        # sign_in_button = outlook_page.locator("#action-oc5b26")
-        # sign_in_button.wait_for(timeout=5000)
-        # sign_in_button.click()
+
         outlook_page.goto(
             "https://login.live.com/login.srf?wa=wsignin1.0&rpsnv=171&ct=1740038207&rver=7.5.2211.0&wp=MBI_SSL&wreply=https%3a%2f%2foutlook.live.com%2fowa%2f%3fnlp%3d1%26cobrandid%3dab0455a0-8d03-46b9-b18b-df2f57b9e44c%26culture%3den-us%26country%3dus%26RpsCsrfState%3d72c5cc31-c6ce-f408-ea9f-66b9bdcae64e&id=292841&aadredir=1&whr=outlook.com&CBCXT=out&lw=1&fl=dob%2cflname%2cwld&cobrandid=ab0455a0-8d03-46b9-b18b-df2f57b9e44c")
         #outlook_page.wait_for_load_state("networkidle")
         print("Ввод email...")
         email_input = outlook_page.locator('input[type="email"]')
-        email_input.wait_for(timeout=10000)
+        email_input.wait_for(timeout=100000)
         email_input.fill(email)
 
         outlook_page.locator('button[type="submit"]').click()
@@ -49,36 +44,35 @@ class OutlookAutomation:
                 print(f"Окно {description} не появилось, пропускаем.")
 
         try:
-            # 1️⃣ Нажимаем "ОК" на уведомлении об учетной записи (если оно появилось)
             notification_button = outlook_page.locator('button.ms-Button--primary')
             wait_and_click(notification_button, description="Примечание об учетной записи")
 
-            # 2️⃣ Нажимаем "Да" на окне 'Не выходить из системы?' (если оно появилось)
-            stay_signed_button = outlook_page.locator('button[id="acceptButton"]')
-            wait_and_click(stay_signed_button, description="Оставаться залогиненым")
-
-            # 3️⃣ Нажимаем "Skip for now" (если окно появилось)
             skip_button = outlook_page.locator("#iShowSkip")
             wait_and_click(skip_button, description="Пропустить защиту")
+            try:
+                skip_button = outlook_page.locator("#iShowSkip")
+                wait_and_click(skip_button, description="Пропустить защиту")
+            except:
+                pass
+
+            stay_signed_button = outlook_page.locator('button[id="acceptButton"]')
+            wait_and_click(stay_signed_button, description="Оставаться залогиненым")
 
         except Exception:
             print("Ошибка при обработке окон:")
             print(traceback.format_exc())  # Логируем полную ошибку
 
-        print("Успешный вход в Outlook.")
+        print("Предварительный вход в Outlook.")
 
         try:
-            # 1️⃣ Нажимаем "ОК" на уведомлении об учетной записи (если оно появилось)
             notification_button = outlook_page.locator('button.ms-Button--primary')
             wait_and_click(notification_button, description="Примечание об учетной записи")
 
-            # 2️⃣ Нажимаем "Да" на окне 'Не выходить из системы?' (если оно появилось)
-            stay_signed_button = outlook_page.locator('button[id="acceptButton"]')
-            wait_and_click(stay_signed_button, description="Оставаться залогиненым")
-
-            # 3️⃣ Нажимаем "Skip for now" (если окно появилось)
             skip_button = outlook_page.locator("#iShowSkip")
             wait_and_click(skip_button, description="Пропустить защиту")
+
+            stay_signed_button = outlook_page.locator('button[id="acceptButton"]')
+            wait_and_click(stay_signed_button, description="Оставаться залогиненым")
         except:
             pass
 
