@@ -46,6 +46,11 @@ class OutlookAutomation:
         try:
             notification_button = outlook_page.locator('button.ms-Button--primary')
             wait_and_click(notification_button, description="Примечание об учетной записи")
+            try:
+                notification_button = outlook_page.locator('button.ms-Button--primary')
+                wait_and_click(notification_button, description="Примечание об учетной записи")
+            except:
+                pass
 
             skip_button = outlook_page.locator("#iShowSkip")
             wait_and_click(skip_button, description="Пропустить защиту")

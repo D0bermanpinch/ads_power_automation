@@ -28,7 +28,6 @@ def get_unverified_profile():
         return None
 
     for profile in profiles:
-        print(f"Проверяем профиль")  # Логирование
         if not profile.get("bought", False):  # Если bought=False
             serial_number = profile.get("serial_number")
             user_id = profile.get("user_id")

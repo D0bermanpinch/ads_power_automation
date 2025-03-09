@@ -6,6 +6,7 @@ from src.outlook_login import OutlookAutomation
 from utils import get_email_password_from_json
 import json
 import requests
+import os
 
 
 class TwitterAutomation:
@@ -80,7 +81,7 @@ class TwitterAutomation:
             self.browser.close()
         self.playwright.stop()
 
-    def login_account(self):
+    def login_account(self, serial_number, user_id, twitter_login, twitter_email, twitter_password):
         """Входит в твиттер аккаунт, если он не залогинен."""
         if not self.pages:
             print("Нет доступных вкладок.")
@@ -106,14 +107,11 @@ class TwitterAutomation:
 
         print("Аккаунт не залогинен, выполняем вход...")
 
-        # Получаем user_id текущего профиля
-        serial_number, user_id = get_unverified_profile()
+
         if not user_id:
             print("Ошибка: Не удалось получить user_id.")
             return
 
-        # Получаем данные для твиттера из profiles.json
-        twitter_login, twitter_email, twitter_password = get_twitter_credentials_from_json(user_id)
         if not twitter_password:
             print("Ошибка: Не найден пароль от Twitter в profiles.json.")
             return
@@ -227,7 +225,7 @@ class TwitterAutomation:
         except:
             print("Ошибка: Кнопка 'Subscribe & Pay' не найдена.")
 
-    def change_email(self, email):
+    def change_email(self, email, serial_number, user_id, twitter_login, twitter_email, twitter_password):
         """Переключается на вкладку смены языка, переходит на страницу аккаунта и вводит пароль."""
         if not self.context:
             print("Ошибка: Контекст браузера отсутствует.")
@@ -236,7 +234,7 @@ class TwitterAutomation:
         # Ищем ранее открытую вкладку со сменой языка
         language_page = None
         for page in self.pages:
-            if "x.com/settings/language" in page.url:
+            if f"x.com/{twitter_login}" in page.url:
                 language_page = page
                 break
 
@@ -256,14 +254,10 @@ class TwitterAutomation:
         password_input = language_page.locator('input[type="password"]')
         password_input.wait_for(timeout=10000)
 
-        # Получаем user_id текущего профиля
-        serial_number, user_id = get_unverified_profile()
         if not user_id:
             print("Ошибка: Не удалось получить user_id.")
             return
 
-        # Получаем пароль из profiles.json
-        twitter_login, twitter_email, twitter_password = get_twitter_credentials_from_json(user_id)
         if not twitter_password:
             print("Ошибка: Не найден пароль от Twitter в profiles.json.")
             return
@@ -292,28 +286,183 @@ class TwitterAutomation:
         language_page.locator('button[data-testid="ocfEnterEmailNextLink"]').click()
         print('Письмо отправлено на почту')
 
+    def update_avatar(self, twitter_login):
+        """Проверяет, стоит ли дефолтная аватарка, и загружает новую, если нужно."""
+
+        BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # Путь к корню проекта
+        AVATAR_PATH = os.path.join(BASE_DIR, "data", "avatars", "avatar.jpg")
+
+        # Открываем вкладку Twitter и переходим в профиль
+        avatar_page = None
+        for page in self.pages:
+            # if "x.com/settings/language" in page.url:
+            if "x.com/home" in page.url:
+                avatar_page = page
+                break
+
+        if not avatar_page:
+            print("Ошибка: Вкладка смены языка не найдена.")
+            return
+
+        avatar_page.bring_to_front()
+        print("Переключились на вкладку смены языка.")
+
+        avatar_page.goto(f"https://x.com/{twitter_login}")
+        # Проверяем, стоит ли дефолтная аватарка
+        avatar = avatar_page.locator('img[alt="Opens profile photo"]')
+        avatar.wait_for(timeout=50000)
+        if not avatar.is_visible():
+            print("Ошибка: Не найден элемент аватарки.")
+            return False
+
+        avatar_src = avatar.get_attribute("src")
+        if "default_profile_200x200.png" not in avatar_src:
+            print("Аватарка уже установлена, пропускаем загрузку.")
+            return True
+
+        max_retries = 3
+        retries = 0
+        while retries <= max_retries:
+            # Открываем редактор профиля
+            avatar_page.goto('https://x.com/i/flow/setup_profile')
+            print("Открыто окно редактирования профиля.")
+
+            # Ищем кнопку загрузки фото
+            file_input = avatar_page.locator('input[data-testid="fileInput"]')
+            file_input.wait_for(timeout=50000)  # Ждём появление элемента
+            if not file_input.is_visible():
+                print("Ошибка: Поле загрузки файла не найдено.")
+
+
+            file_input.set_input_files(AVATAR_PATH)
+            print(f"Загружается аватарка: {AVATAR_PATH}")
+
+            # Ждём, пока Twitter обработает изображение
+            sleep(3)
+
+            # Подтверждаем изменения
+            save_button = avatar_page.locator("button[data-testid='applyButton']")
+            save_button.wait_for(timeout=50000)
+            if save_button.is_visible():
+                save_button.click()
+                sleep(2)
+
+            #Пропускаем заполнение профиля
+            skip1 = avatar_page.locator("button[data-testid='ocfSelectAvatarNextButton']")
+            skip2 = avatar_page.locator("button[data-testid='ocfSelectBannerSkipForNowButton']")
+            skip3 = avatar_page.locator("button[data-testid='ocfEnterTextSkipForNowButton']")
+            skip4 = avatar_page.locator("button[data-testid='ocfEnterTextSkipForNowButton']")
+            skip5 = avatar_page.locator("button[data-testid='OCF_CallToAction_Button']")
+            skip1.wait_for(timeout=50000)
+            sleep(1)
+            skip1.click()
+            skip2.wait_for(timeout=50000)
+            sleep(2)
+            skip2.click()
+            skip3.wait_for(timeout=50000)
+            sleep(2)
+            skip3.click()
+            skip4.wait_for(timeout=50000)
+            sleep(2)
+            skip4.click()
+            skip5.wait_for(timeout=50000)
+            sleep(2)
+            skip5.click()
+
+            avatar_page.goto(f"https://x.com/{twitter_login}")
+            # Ожидание подтверждения обновления аватарки
+
+            sleep(5)  # Даём время на обновление
+            avatar_src = avatar.get_attribute("src")
+            if "default_profile_200x200.png" not in avatar_src:
+                print("Аватарка успешно обновлена.")
+                return True
+            print(f"Аватарка не обновилась, повторяем попытку ({retries + 1}/{max_retries})...")
+            #file_input.set_input_files(AVATAR_PATH)  # Повторная загрузка
+            retries += 1
+
+        print("Ошибка: Не удалось обновить аватарку.")
+        return False
+
+
+    def payment(self, email, password):
+        if not self.context:
+            print("Ошибка: Контекст браузера отсутствует.")
+            return
+
+        # Ищем ранее открытую вкладку со сменой языка
+        payment_page = None
+        for page in self.pages:
+            if f"https://checkout.stripe.com/" in page.url:
+                payment_page = page
+                break
+
+        if not payment_page:
+            print("Ошибка: Вкладка смены языка не найдена.")
+            return
+
+        # Переключаемся на неё
+        payment_page.bring_to_front()
+        print("Переключились на оплаты.")
+
+        #mail_input = payment_page.locator('input[id="email"]')
+        cardnumber_input = payment_page.locator('input[id="cardNumber"]')
+        expiry_input = payment_page.locator('input[id="cardExpiry"]')
+        cvc_input = payment_page.locator('input[id="cardCvc"]')
+        cardholdername_input = payment_page.locator('input[id="billingName"]')
+        adress_input = payment_page.locator('input[id="billingAddressLine1"]')
+        checkbox = payment_page.locator("div.CheckboxField")
+        submit_button = payment_page.locator("div[class='SubmitButton-IconContainer']")
+
+        #mail_input.fill(email)
+        cardnumber_input.fill("4721070007327391")
+        expiry_input.fill("1229")
+        cvc_input.fill("123")
+        cardholdername_input.fill("John Wick")
+        adress_input.fill("645 Gladstone St, Sheridan, WY 82801")
+        sleep(3)
+        adress_input.press("Enter")
+        sleep(1)
+
+        if checkbox.get_attribute("class") and "--checked" in checkbox.get_attribute("class"):
+            print("Чекбокс активен, отключаем...")
+            checkbox.click()  # Нажимаем на него, чтобы отключить
+        else:
+            print("Чекбокс уже отключен.")
+        sleep(3)
+        submit_button.focus()  # Фокусируемся на кнопке
+        payment_page.keyboard.press("Enter")  # Эмулируем нажатие Enter
+        print("Оплата произведена")
+
 
 if __name__ == "__main__":
     twitter_bot = TwitterAutomation()
     context, pages = twitter_bot.open_profile()
 
     if context:
-        # Проверяем, залогинен ли аккаунт
-        twitter_bot.login_account()
-
-        twitter_bot.set_language_to_english()  # Меняем язык в Twitter
-
-        # Открываем Outlook в новом окне и входим
+        # Получаем все данные от профиля
         serial_number, user_id = get_unverified_profile()
         email, password = get_email_password_from_json(user_id)
-        if email and password:
-            outlook_bot = OutlookAutomation(context)
-            outlook_bot.login_outlook(email, password)
-        else:
-            print("Ошибка: Не найден email или пароль в profiles.json")
+        twitter_login, twitter_email, twitter_password = get_twitter_credentials_from_json(user_id)
 
-        twitter_bot.subscribe_twitter_blue()
-        twitter_bot.change_email(email)
+        # Проверяем, залогинен ли аккаунт
+        #twitter_bot.login_account(serial_number, user_id, twitter_login, twitter_email, twitter_password)
+
+        #twitter_bot.set_language_to_english()  # Меняем язык в Twitter
+        #twitter_bot.update_avatar(twitter_login)
+
+
+        #Входим в почту, если данные есть
+        # if email and password:
+        #     outlook_bot = OutlookAutomation(context)
+        #     outlook_bot.login_outlook(email, password)
+        # else:
+        #     print("Ошибка: Не найден email или пароль в profiles.json")
+
+
+        #twitter_bot.subscribe_twitter_blue()
+        #twitter_bot.change_email(email, serial_number, user_id, twitter_login, twitter_email, twitter_password)
+        twitter_bot.payment(email, password)
 
     input("Нажмите Enter для выхода...")
     twitter_bot.close()

@@ -94,13 +94,13 @@ class OutlookCodeReader:
     def get_code_from_spans(self):
         """Ищет 6-значный код в span'ах без открытия письма."""
         spans = self.page.locator("span")
-        print(f"🔍 Найдено {spans.count()} span-элементов, проверяем их содержимое...")
+        print(f"Найдено {spans.count()} span-элементов, проверяем их содержимое...")
 
         for i in range(spans.count()):
             text = spans.nth(i).inner_text().strip()
             match = re.search(r"\b\d{6}\b", text)  # Ищем шестизначный код
             if match:
-                print(f"✅ Найден код: {match.group(0)}")
+                print(f"Найден код: {match.group(0)}")
                 return match.group(0)
 
         print("Код в span'ах не найден.")
