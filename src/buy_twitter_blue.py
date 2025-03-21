@@ -414,7 +414,7 @@ class TwitterAutomation:
         checkbox = payment_page.locator("div.CheckboxField")
         submit_button = payment_page.locator("div[class='SubmitButton-IconContainer']")
 
-        #mail_input.fill(email)
+        mail_input.fill(email)
         cardnumber_input.fill("4721070007327391")
         expiry_input.fill("1229")
         cvc_input.fill("123")
