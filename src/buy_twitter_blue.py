@@ -1,8 +1,10 @@
 from time import sleep
 from playwright.sync_api import sync_playwright
 from config.settings import Data_Setup
-from src.utils import get_unverified_profile, get_credentials, get_twitter_credentials_from_json
+from src.utils import get_unverified_profile, get_credentials, get_twitter_credentials_from_json, get_random_avatar, get_random_name
+from src.outlook_code_reader import OutlookCodeReader
 from src.outlook_login import OutlookAutomation
+from src.h_captcha_solver import HCaptchaSolver
 from utils import get_email_password_from_json
 import json
 import requests
@@ -10,13 +12,16 @@ import os
 
 
 class TwitterAutomation:
-    def __init__(self):
+    def __init__(self, playwright):
         self.base_url = Data_Setup.ADSP_API_URL
         self.api_key = Data_Setup.ADSP_API_KEY
-        self.playwright = sync_playwright().start()  # Запускаем Playwright
+        self.playwright = playwright  # Запускаем Playwright
         self.browser = None
         self.context = None
         self.pages = []
+
+    def update_pages(self):
+        self.pages = self.context.pages
 
     def start_browser(self, serial_number, user_id):
         """Открывает профиль в AdsPower и возвращает WebSocket URL"""
@@ -70,6 +75,12 @@ class TwitterAutomation:
         for page in self.pages:
             if "x.com" in page.url or "twitter.com" in page.url:
                 page.bring_to_front()
+                page.set_viewport_size({"width": 1920, "height": 1080})
+                session = self.context.new_cdp_session(page)
+                session.send("Browser.setWindowBounds", {
+                    "windowId": session.send("Browser.getWindowForTarget")["windowId"],
+                    "bounds": {"windowState": "maximized"}
+                })
                 print(f"Активирована вкладка: {page.url}")
                 break
 
@@ -82,6 +93,7 @@ class TwitterAutomation:
         self.playwright.stop()
 
     def login_account(self, serial_number, user_id, twitter_login, twitter_email, twitter_password):
+        self.update_pages()
         """Входит в твиттер аккаунт, если он не залогинен."""
         if not self.pages:
             print("Нет доступных вкладок.")
@@ -152,6 +164,7 @@ class TwitterAutomation:
             pass
 
     def set_language_to_english(self):
+        self.update_pages()
         """Меняет язык Twitter-профиля на английский"""
         if not self.pages:
             print("Нет доступных вкладок.")
@@ -193,6 +206,7 @@ class TwitterAutomation:
         print("Язык изменён на английский.")
 
     def subscribe_twitter_blue(self):
+        self.update_pages()
         """Открывает страницу Twitter Blue в новой вкладке и выполняет подписку"""
         if not self.context:
             print("Ошибка: Контекст браузера отсутствует.")
@@ -226,77 +240,62 @@ class TwitterAutomation:
             print("Ошибка: Кнопка 'Subscribe & Pay' не найдена.")
 
     def change_email(self, email, serial_number, user_id, twitter_login, twitter_email, twitter_password):
+        self.update_pages()
         """Переключается на вкладку смены языка, переходит на страницу аккаунта и вводит пароль."""
         if not self.context:
             print("Ошибка: Контекст браузера отсутствует.")
             return
 
-        # Ищем ранее открытую вкладку со сменой языка
-        language_page = None
-        for page in self.pages:
-            if f"x.com/{twitter_login}" in page.url:
-                language_page = page
-                break
-
-        if not language_page:
-            print("Ошибка: Вкладка смены языка не найдена.")
-            return
-
-        # Переключаемся на неё
-        language_page.bring_to_front()
-        print("Переключились на вкладку смены языка.")
-
-        # Переход на страницу "Ваши данные Twitter"
-        language_page.goto("https://x.com/settings/your_twitter_data/account", wait_until="domcontentloaded")
-        print("Перешли на страницу управления аккаунтом.")
-
-        # Ожидаем появления поля ввода пароля
-        password_input = language_page.locator('input[type="password"]')
-        password_input.wait_for(timeout=10000)
-
-        if not user_id:
-            print("Ошибка: Не удалось получить user_id.")
-            return
-
-        if not twitter_password:
-            print("Ошибка: Не найден пароль от Twitter в profiles.json.")
-            return
-
-        # Вводим пароль
-        password_input.fill(twitter_password)
-        print("Пароль от Twitter введён.")
-
-        # Нажимаем кнопку "Confirm"
-        confirm_button = language_page.locator('button:has-text("Confirm")')
-        confirm_button.wait_for(timeout=5000)
-        sleep(2)
-        confirm_button.click()
-        print("Подтверждение пароля выполнено.")
-
+        # Открываем новую вкладку со сменой языка
+        change_email_page = self.context.new_page()
         print("Переход на смену почты")
-        #language_page.locator('a[data-testid="pivot"]').nth(2).click()
-        language_page.goto('https://x.com/i/flow/add_email')
+        change_email_page.goto('https://x.com/i/flow/add_email')
 
-        language_page.locator('input[name="password"]').fill(twitter_password)
-        language_page.locator('button[data-testid="LoginForm_Login_Button"]').click()
+        change_email_page.locator('input[name="password"]').fill(twitter_password)
+        change_email_page.locator('button[data-testid="LoginForm_Login_Button"]').click()
         print("Успешный переход на смену почты")
 
 
-        language_page.locator('input[name="email"]').fill(email)
-        language_page.locator('button[data-testid="ocfEnterEmailNextLink"]').click()
+        change_email_page.locator('input[name="email"]').fill(email)
+        change_email_page.locator('button[data-testid="ocfEnterEmailNextLink"]').click()
         print('Письмо отправлено на почту')
 
+    def confirm_change_email(self, twitter_code):
+        self.update_pages()
+        change_email_page = None
+        sleep(1)
+        for page in self.pages:
+            if "flow/add_email" in page.url:
+                change_email_page = page
+                break
+
+        if not change_email_page:
+            print("Ошибка: Вкладка смены почты не найдена.")
+            return
+
+        change_email_page.bring_to_front()
+        print("Переключились на вкладку смены почты.")
+
+        verify_input = change_email_page.locator('input[name="verfication_code"]')
+        verify_button = change_email_page.locator('button').nth(2)
+
+        verify_input.fill(twitter_code)
+        sleep(2)
+        verify_button.click()
+        print("Код из почты введен")
+
+
     def update_avatar(self, twitter_login):
+        self.update_pages()
         """Проверяет, стоит ли дефолтная аватарка, и загружает новую, если нужно."""
 
         BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # Путь к корню проекта
-        AVATAR_PATH = os.path.join(BASE_DIR, "data", "avatars", "avatar.jpg")
+        AVATAR_PATH = get_random_avatar()
 
         # Открываем вкладку Twitter и переходим в профиль
         avatar_page = None
         for page in self.pages:
-            # if "x.com/settings/language" in page.url:
-            if "x.com/home" in page.url:
+            if "x.com/settings/language" in page.url:
                 avatar_page = page
                 break
 
@@ -384,8 +383,48 @@ class TwitterAutomation:
         print("Ошибка: Не удалось обновить аватарку.")
         return False
 
+    def update_name(self, twitter_login):
+        self.update_pages()
+        name_page = None
+        for page in self.pages:
+            # if "x.com/settings/language" in page.url:
+            if f"https://x.com/{twitter_login}" in page.url:
+                name_page = page
+                break
+
+        if not name_page:
+            print("Ошибка: Вкладка аккаунта не найдена.")
+            return
+
+        name_page.bring_to_front()
+        print("Переключились на вкладку аккаунта.")
+        #TODO: сделать подстановку имени как Кир скинет
+        max_retries = 3
+        retries = 0
+        while retries <= max_retries:
+
+            name_page.goto("https://x.com/settings/profile")
+            name_page.locator('input[name="displayName"]').fill('viderichoco')
+            sleep(1)
+            save_button = name_page.locator('button[data-testid="Profile_Save_Button"]')
+            save_button.focus()
+            name_page.keyboard.press("Enter")
+
+
+            sleep(2)  # Даём время на обновление
+            twitter_name = name_page.locator('//span[text()="viderichoco"]')
+            if twitter_name.is_visible():
+                print("Имя успешно обновлено.")
+                return
+            else:
+                print("Имя не обновилось, повторная попытка...")
+                retries += 1
+
+        print("Не удалось обновить имя после нескольких попыток.")
+
 
     def payment(self, email, password):
+        self.update_pages()
         if not self.context:
             print("Ошибка: Контекст браузера отсутствует.")
             return
@@ -405,7 +444,9 @@ class TwitterAutomation:
         payment_page.bring_to_front()
         print("Переключились на оплаты.")
 
-        #mail_input = payment_page.locator('input[id="email"]')
+        cardholder_name = get_random_name()
+
+        mail_input = payment_page.locator('input[id="email"]')
         cardnumber_input = payment_page.locator('input[id="cardNumber"]')
         expiry_input = payment_page.locator('input[id="cardExpiry"]')
         cvc_input = payment_page.locator('input[id="cardCvc"]')
@@ -415,12 +456,12 @@ class TwitterAutomation:
         submit_button = payment_page.locator("div[class='SubmitButton-IconContainer']")
 
         mail_input.fill(email)
-        cardnumber_input.fill("4721070007327391")
-        expiry_input.fill("1229")
-        cvc_input.fill("123")
-        cardholdername_input.fill("John Wick")
-        adress_input.fill("645 Gladstone St, Sheridan, WY 82801")
-        sleep(3)
+        cardnumber_input.fill("4482130162538791")
+        expiry_input.fill("0429")
+        cvc_input.fill("115")
+        cardholdername_input.fill(cardholder_name)
+        adress_input.fill("910 Washington St, Douglas, WY 82633")
+        sleep(5)
         adress_input.press("Enter")
         sleep(1)
 
@@ -432,39 +473,66 @@ class TwitterAutomation:
         sleep(3)
         submit_button.focus()  # Фокусируемся на кнопке
         payment_page.keyboard.press("Enter")  # Эмулируем нажатие Enter
-        print("Оплата произведена")
 
+        sleep(10)
+        print("Проверяем наличие hCaptcha...")
+        captcha_solver = HCaptchaSolver(payment_page, payment_page.url)
+        if captcha_solver.get_sitekey():
+            print("hCaptcha обнаружена, решаем...")
+            captcha_solver.submit_hcaptcha_solution(email)
+        else:
+            print("hCaptcha не обнаружена, продолжаем.")
+
+        print("Процесс оплаты завершен.")
 
 if __name__ == "__main__":
-    twitter_bot = TwitterAutomation()
-    context, pages = twitter_bot.open_profile()
+    from src.utils import get_credentials
+    from src.outlook_code_reader import OutlookCodeReader
+    from src.outlook_login import OutlookAutomation
 
-    if context:
-        # Получаем все данные от профиля
-        serial_number, user_id = get_unverified_profile()
-        email, password = get_email_password_from_json(user_id)
-        twitter_login, twitter_email, twitter_password = get_twitter_credentials_from_json(user_id)
+    print("Ручной запуск buy_twitter_blue")
 
-        # Проверяем, залогинен ли аккаунт
-        #twitter_bot.login_account(serial_number, user_id, twitter_login, twitter_email, twitter_password)
+    account_data = get_credentials()
+    if not account_data:
+        print("Нет доступных аккаунтов.")
+        exit()
 
-        #twitter_bot.set_language_to_english()  # Меняем язык в Twitter
-        #twitter_bot.update_avatar(twitter_login)
+    email = account_data["Email"]
+    password = account_data["Password"]
+    token = account_data["Token"]
+    twitter_login = account_data["Twitter Login"]
+    twitter_password = account_data["Twitter Password"]
+    twitter_email = account_data["Twitter Email"]
 
+    from playwright.sync_api import sync_playwright
 
-        #Входим в почту, если данные есть
-        # if email and password:
-        #     outlook_bot = OutlookAutomation(context)
-        #     outlook_bot.login_outlook(email, password)
-        # else:
-        #     print("Ошибка: Не найден email или пароль в profiles.json")
+    with sync_playwright() as p:
+        bot = TwitterAutomation(p)
+        context, _ = bot.open_profile()
 
+        if not context:
+            print("Не удалось открыть профиль.")
+            exit()
 
-        #twitter_bot.subscribe_twitter_blue()
-        #twitter_bot.change_email(email, serial_number, user_id, twitter_login, twitter_email, twitter_password)
-        twitter_bot.payment(email, password)
+        bot.login_account("SKIP", "SKIP", twitter_login, twitter_email, twitter_password)
+        bot.set_language_to_english()
+        bot.update_avatar(twitter_login)
+        bot.update_name(twitter_login)
 
-    input("Нажмите Enter для выхода...")
-    twitter_bot.close()
+        outlook = OutlookAutomation(context)
+        outlook.login_outlook(email, password)
+
+        bot.subscribe_twitter_blue()
+        bot.change_email(email, "SKIP", "SKIP", twitter_login, twitter_email, twitter_password)
+
+        outlook_code = OutlookCodeReader(context)
+        twitter_code = outlook_code.find_twitter_code()
+        bot.confirm_change_email(twitter_code)
+
+        bot.payment(email, password)
+        bot.close()
+
+        print("🎯 Скрипт buy_twitter_blue завершён.")
+
 
 

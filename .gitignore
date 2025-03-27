@@ -5,5 +5,5 @@ __pycache__/
 logs/
 data
 cookies.txt
-data.txt
-data2.txt
+1/data.txt
+1/data2.txt

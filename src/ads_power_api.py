@@ -1,11 +1,15 @@
 import requests
-import json
 import os
+import json
+import pandas as pd
 from datetime import datetime, timezone
 from config.settings import Data_Setup
 from src.utils import get_credentials
 
 PROFILES_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "profiles.json")
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+OUTPUT_XLSX = os.path.join(BASE_DIR, "data", "output.xlsx")
+
 
 
 def save_profile(email, password, serial_number, user_id, token, twitter_login, twitter_password, twitter_email):
@@ -37,6 +41,23 @@ def save_profile(email, password, serial_number, user_id, token, twitter_login, 
 
     with open(PROFILES_PATH, "w", encoding="utf-8") as f:
         json.dump(profiles, f, indent=4, ensure_ascii=False)
+
+        # Дополнительно: обновляем Excel по email
+        if os.path.exists(OUTPUT_XLSX):
+            try:
+                df = pd.read_excel(OUTPUT_XLSX)
+                updated_rows = 0
+
+                for idx, row in df.iterrows():
+                    if row.get("Email") == email:
+                        df.at[idx, "AdsPower ID"] = str(serial_number)
+                        updated_rows += 1
+
+                if updated_rows:
+                    df.to_excel(OUTPUT_XLSX, index=False)
+                    print(f"[Excel] Обновлено {updated_rows} строк для email: {email}")
+            except Exception as e:
+                print(f"[Excel] Ошибка при обновлении файла: {e}")
 
 
 class AdsPowerAPI:
@@ -80,7 +101,7 @@ class AdsPowerAPI:
                 "webgl_image": 0
             },
             "cookie": json.dumps([{
-                "domain": ".twitter.com",
+                "domain": ".x.com",
                 "httpOnly": False,
                 "path": "/",
                 "secure": False,

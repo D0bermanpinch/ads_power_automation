@@ -1,0 +1,28 @@
+2025-03-27 04:09:17 [ERROR] Error in tatesmullaeu@outlook.com:Traceback (most recent call last):
+  File "C:\ads_automation\src\main_automation.py", line 69, in run_one_flow
+    twitter_bot.subscribe_twitter_blue()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ads_automation\src\buy_twitter_blue.py", line 210, in subscribe_twitter_blue
+    premium_page = self.context.new_page()
+  File "C:\ads_automation\venv\Lib\site-packages\playwright\sync_api\_generated.py", line 12815, in new_page
+    return mapping.from_impl(self._sync(self._impl_obj.new_page()))
+                             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\ads_automation\venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ~~~~~~~~~~~^^
+  File "C:\ads_automation\venv\Lib\site-packages\playwright\_impl\_browser_context.py", line 325, in new_page
+    return from_channel(await self._channel.send("newPage"))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\ads_automation\venv\Lib\site-packages\playwright\_impl\_connection.py", line 61, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "C:\ads_automation\venv\Lib\site-packages\playwright\_impl\_connection.py", line 528, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: BrowserContext.new_page: Target page, context or browser has been closed
+
+2025-03-27 04:09:30 [ERROR] Future exception was never retrieved
+future: <Future finished exception=TargetClosedError('Target page, context or browser has been closed')>
+playwright._impl._errors.TargetClosedError: Target page, context or browser has been closed

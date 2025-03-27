@@ -3,11 +3,14 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 import os
 import json
+import random
 
 # Определяем абсолютный путь к файлу profiles.json
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # Путь к корню проекта
 PROFILES_PATH = os.path.join(BASE_DIR, "data", "profiles.json")
 XLSX_PATH = os.path.join(BASE_DIR, "data", "output.xlsx")
+NAMES_PATH=os.path.join(BASE_DIR, "1", "names.json")
+AVATAR_PATH=os.path.join(BASE_DIR, "1", "avatars")
 
 
 def get_unverified_profile():
@@ -123,3 +126,47 @@ def get_credentials():
 
     print("Ошибка: Не удалось найти неиспользованные данные.")
     return None
+
+def get_random_name():
+    with open(NAMES_PATH, "r", encoding="utf-8") as f:
+        names = json.load(f)
+    return random.choice(names)
+
+def get_random_avatar():
+    avatars = [f for f in os.listdir(AVATAR_PATH) if f.lower().endswith(".jpg")]
+    if not avatars:
+        raise FileNotFoundError("Нет доступных JPG-аватарок в папке.")
+    return os.path.join(AVATAR_PATH, random.choice(avatars))
+
+def set_result_for_email(email, result_text, excel_path=XLSX_PATH):
+    """Записывает результат (успех/ошибка) в колонку 'Result' по email"""
+    try:
+        if not os.path.exists(excel_path):
+            print(f"[Result] Файл не найден: {excel_path}")
+            return
+
+        df = pd.read_excel(excel_path)
+        updated = 0
+
+        for idx, row in df.iterrows():
+            if row.get("Email") == email:
+                df.at[idx, "Result"] = result_text
+                updated += 1
+
+        if updated:
+            df.to_excel(excel_path, index=False)
+            print(f"[Result] Обновлён результат для {email}: '{result_text}'")
+        else:
+            print(f"[Result] Email {email} не найден в таблице.")
+    except Exception as e:
+        print(f"[Result] Ошибка при записи результата: {e}")
+
+def mark_payment_success(email):
+    set_result_for_email(email, "Успешно")
+
+def mark_payment_failed(email):
+    set_result_for_email(email, "Ошибка оплаты")
+
+def mark_card_declined(email):
+    set_result_for_email(email, "Карта отклонена")
+
